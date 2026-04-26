@@ -1,25 +1,54 @@
-import { v4 as uuidv4 } from 'uuid';
+
+
+function escapeXml(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function makeAsciiSlug(value = 'Khach') {
+  const normalized = String(value)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  const slug = normalized
+    .replace(/[^a-zA-Z0-9._-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  return slug || 'Khach';
+}
+
+function makeContentDisposition(filename) {
+  const fallback = makeAsciiSlug(filename).replace(/\.mobileconfig$/i, '') + '.mobileconfig';
+  const encoded = encodeURIComponent(filename);
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`;
+}
 
 export default function handler(req, res) {
-  const { data } = req.query;
+  const { data } = req.query || {};
+
+  if (!data) {
+    return res.status(400).send('Thiếu dữ liệu');
+  }
 
   let decoded;
-
   try {
-    decoded = JSON.parse(Buffer.from(data, "base64").toString());
+    decoded = JSON.parse(Buffer.from(data, 'base64').toString());
   } catch {
-    return res.status(400).send("Lỗi");
+    return res.status(400).send('Dữ liệu không hợp lệ');
   }
 
   if (Date.now() > decoded.exp) {
-    return res.status(410).send("Hết hạn");
+    return res.status(410).send('Hết hạn');
   }
 
-  const clientFp = req.headers["x-fp"];
-
-  if (!decoded.devices || !decoded.devices.includes(clientFp)) {
-    return res.status(403).send("Thiết bị không hợp lệ");
-  }
+  const rawName = String(decoded.name || 'Khách').trim() || 'Khách';
+  const displayName = escapeXml(rawName);
+  const safeSlug = makeAsciiSlug(rawName);
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -33,7 +62,7 @@ export default function handler(req, res) {
         <key>DNSProtocol</key>
         <string>HTTPS</string>
         <key>ServerURL</key>
-        <string>https://dns.nextdns.io/aa5bc2/</string>
+        <string>https://dns.nextdns.io/aa5bc2/${safeSlug}</string>
         <key>ServerAddresses</key>
         <array>
           <string>45.90.28.0</string>
@@ -45,25 +74,21 @@ export default function handler(req, res) {
       <key>OnDemandEnabled</key>
       <integer>1</integer>
       <key>PayloadDescription</key>
-      <string>Bản quyền DNS thuộc về LOCKET GOLD</string>
+      <string>Bản quyền DNS thuộc về LOCKET GOLD CAO VĂN NAM</string>
       <key>PayloadDisplayName</key>
-      <string>Locket User 15s DƯƠNG BÌNH - ${decoded.name}</string>
+      <string>Locket User 15s - ${displayName}</string>
       <key>PayloadIdentifier</key>
-      <string>com.nextdns.profile.aa5bc2.${decoded.name}</string>
+      <string>com.nextdns.profile.aa5bc2.${safeSlug}</string>
       <key>PayloadType</key>
       <string>com.apple.dnsSettings.managed</string>
       <key>PayloadUUID</key>
-      <string>${uuidv4()}</string>
+      <string>18994c68-6df7-4ce2-8ca3-f478d8d6c6f0</string>
       <key>PayloadVersion</key>
       <integer>1</integer>
     </dict>
   </array>
-  <key>PayloadDescription</key>
-  <string>
-💛 Locket Gold 15s
-</string>
   <key>PayloadDisplayName</key>
-  <string>Locket User 15s DƯƠNG BÌNH - ${decoded.name}</string>
+  <string>Locket User 15s - ${displayName}</string>
   <key>PayloadIdentifier</key>
   <string>com.nextdns.profile.aa5bc2</string>
   <key>PayloadRemovalDisallowed</key>
@@ -71,17 +96,18 @@ export default function handler(req, res) {
   <key>PayloadType</key>
   <string>Configuration</string>
   <key>PayloadUUID</key>
-  <string>${uuidv4()}</string>
+  <string>ddb614e1-bff9-485a-9cfd-f56c21ce5861</string>
   <key>PayloadVersion</key>
   <integer>1</integer>
 </dict>
 </plist>`;
 
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="${decoded.name}_Locket_15s.mobileconfig"`
-  );
-  res.setHeader("Content-Type", "application/x-apple-aspen-config");
+  const fileName = `${rawName}_Locket_15s.mobileconfig`;
 
-  res.send(xml);
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Content-Disposition', makeContentDisposition(fileName));
+  res.setHeader('Content-Type', 'application/x-apple-aspen-config; charset=utf-8');
+  return res.status(200).send(xml);
 }

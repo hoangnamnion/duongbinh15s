@@ -22,8 +22,10 @@
         .step-content { padding-left: 40px; font-size: 14px; color: #ccc; line-height: 1.5; }
         .warning-text { color: #ff4757; font-weight: bold; display: block; margin-top: 5px; }
         .success-text { color: #2ed573; font-weight: bold; }
-        .btn-action { display: block; width: 100%; padding: 14px; margin-top: 12px; border-radius: 12px; text-decoration: none; text-align: center; font-weight: 700; font-size: 15px; text-transform: uppercase; border: none; cursor: pointer;}
-        .btn-gold { background: linear-gradient(90deg, var(--secondary-gold), var(--primary-gold)); color: #000; }
+        .btn-action { display: block; width: 100%; padding: 14px; margin-top: 12px; border-radius: 12px; text-decoration: none; text-align: center; font-weight: 700; font-size: 15px; text-transform: uppercase; border: none; cursor: pointer; transition: all 0.3s ease; }
+        .btn-action:active { transform: scale(0.96); }
+        .btn-gold { background: linear-gradient(90deg, var(--secondary-gold), var(--primary-gold), var(--secondary-gold)); background-size: 200% auto; color: #000; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); animation: shineGradient 3s infinite linear; }
+        @keyframes shineGradient { to { background-position: 200% center; } }
         .btn-blue { background: linear-gradient(90deg, #2193b0, #6dd5ed); color: #fff; }
         .btn-disabled { background: #555; color: #aaa; pointer-events: none; cursor: not-allowed; }
         footer { text-align: center; margin-top: 40px; margin-bottom: 20px; font-size: 12px; color: #555; }
@@ -33,7 +35,8 @@
         .arrow-down { font-size: 40px; color: var(--primary-gold); animation: bounce 1.5s infinite; }
         @keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } 60% { transform: translateY(-5px); } }
         .expired-notice { border: 2px solid #ff4757; background: rgba(255, 71, 87, 0.1); padding: 15px; border-radius: 12px; color: #ff4757; text-align: center; margin-bottom: 20px; font-weight: bold; display: none; }
-        #countdown { color: var(--primary-gold); font-weight: bold; text-align: center; margin-top: 10px; font-size: 14px;}
+        #countdown { text-align: center; }
+        #countdown:not(:empty) { color: var(--primary-gold); font-weight: 600; margin: 15px auto 0 auto; font-size: 13.5px; background: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.25); padding: 10px 20px; border-radius: 20px; width: fit-content; display: flex; align-items: center; justify-content: center; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
@@ -45,7 +48,7 @@
 
     <div class="container">
         <header>
-            <div class="vip-badge">♛ DƯƠNG BÌNH 💛</div>
+            <div class="vip-badge">♛ Dương Bình Đẹp Zai 💛</div>
             <h1>Unlock Locket 15s</h1>
             <div class="customer-greeting" id="greetingBox">
                 Đang tải dữ liệu...
@@ -99,56 +102,63 @@
         let data = params.get("data");
         let timerInterval;
 
-        function isInAppBrowser() {
+        function getDeviceBrowserWarning() {
             var ua = navigator.userAgent || navigator.vendor || window.opera;
-            return (ua.indexOf("FBAN") > -1) || (ua.indexOf("FBAV") > -1) || (ua.indexOf("Instagram") > -1) || (ua.indexOf("Zalo") > -1);
+            var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            var isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS|OPiOS|EdgiOS/.test(ua);
+            var inApp = (ua.indexOf("FBAN") > -1) || (ua.indexOf("FBAV") > -1) || (ua.indexOf("Instagram") > -1) || (ua.indexOf("Zalo") > -1) || (ua.indexOf("TikTok") > -1);
+
+            if (!isIOS) {
+                return {
+                    title: "⚠️ Thiết Bị Không Hỗ Trợ",
+                    message: "Cấu hình này chỉ dành cho thiết bị <b>iOS (iPhone/iPad)</b>. Vui lòng gửi link này sang iPhone/iPad để mở máy.",
+                    action: ""
+                };
+            }
+            if (inApp || !isSafari) {
+                return {
+                    title: "⚠️ Lỗi Trình Duyệt",
+                    message: "Bắt buộc mở bằng Safari để cài cấu hình. Nhấn 3 CHẤM (...) hoặc nút chia sẻ -> <b>Mở bằng trình duyệt Safari</b>",
+                    action: "⬇️"
+                };
+            }
+            return null;
         }
 
-        function getFingerprint() {
-            const raw = [
-                navigator.userAgent,
-                navigator.language,
-                screen.width + "x" + screen.height,
-                Intl.DateTimeFormat().resolvedOptions().timeZone,
-                navigator.platform
-            ].join("|");
-            return btoa(raw);
+        // Fix safe base64 decode for unicode names
+        function safeDecodeB64(str) {
+            try {
+                return decodeURIComponent(escape(atob(str)));
+            } catch(e) {
+                return atob(str);
+            }
         }
 
         async function init() {
-            // Chặn in-app browser
-            if (isInAppBrowser()) {
-                document.getElementById('messenger-warning').style.display = 'flex';
+            const warning = getDeviceBrowserWarning();
+            if (warning) {
+                const warningDiv = document.getElementById('messenger-warning');
+                warningDiv.querySelector('.warning-title').innerHTML = warning.title;
+                warningDiv.querySelector('div:nth-child(2)').innerHTML = warning.message;
+                warningDiv.querySelector('.arrow-down').innerHTML = warning.action;
+                warningDiv.style.display = 'flex';
                 document.body.style.overflow = 'hidden';
+                return;
             }
 
             if (!data) return showError("❌ LINK KHÔNG HỢP LỆ");
 
             try {
-                let decoded = JSON.parse(atob(data));
+                let decoded = JSON.parse(safeDecodeB64(data));
 
                 // Thay tên động
-                document.getElementById("greetingBox").innerHTML = `Xin chào, <b>${decoded.name}</b> 👋<br>Đây là hướng dẫn dành riêng cho bạn.`;
-                document.getElementById("footerText").innerHTML = `<p>Link này dành riêng cho ${decoded.name}.</p>`;
+                const userName = decoded.name || "Khách VIP";
+                document.getElementById("greetingBox").innerHTML = `Xin chào, <b>${userName}</b> 👋<br>Đây là hướng dẫn dành riêng cho bạn.`;
+                document.getElementById("footerText").innerHTML = `<p>Link này dành riêng cho ${userName}.</p>`;
 
                 // Kiểm tra hết hạn
                 if (Date.now() > decoded.exp) {
                     return showError("❌ LIÊN KẾT ĐÃ HẾT HẠN<br><span style='font-size: 12px; font-weight: normal; color: #ccc'>Vui lòng liên hệ Admin để lấy link mới.</span>");
-                }
-
-                // Kiểm tra thiết bị
-                const fp = getFingerprint();
-                if (!decoded.devices) {
-                    decoded.devices = [fp];
-                    data = btoa(JSON.stringify(decoded));
-                } else {
-                    if (!decoded.devices.includes(fp)) {
-                        if (decoded.devices.length >= 2) {
-                            return showError("❌ LINK ĐÃ ĐẠT GIỚI HẠN THIẾT BỊ<br><span style='font-size: 12px; font-weight: normal; color: #ccc'>Mỗi link chỉ hỗ trợ tối đa 2 thiết bị.</span>");
-                        }
-                        decoded.devices.push(fp);
-                        data = btoa(JSON.stringify(decoded));
-                    }
                 }
 
                 // Bật nút tải và đếm ngược
@@ -174,18 +184,17 @@
             const btn = document.getElementById("downloadBtn");
             btn.style.display = "block";
             btn.onclick = () => {
-                fetch("/api/download?data=" + data, {
-                    headers: { "x-fp": getFingerprint() }
-                })
-                .then(res => {
-                    if(!res.ok) throw new Error("Lỗi tải");
-                    return res.blob();
-                })
-                .then(blob => {
-                    const url = URL.createObjectURL(blob);
-                    window.location.href = url;
-                })
-                .catch(err => alert("Có lỗi xảy ra hoặc link đã quá hạn."));
+                btn.innerHTML = "⏳ Đang mở file cấu hình...";
+                btn.style.pointerEvents = "none";
+                
+                // Sử dụng window.location.assign để Safari hiển thị prompt cài profile
+                const url = "/api/download?data=" + encodeURIComponent(data);
+                window.location.assign(url);
+                
+                setTimeout(() => {
+                    btn.innerHTML = "⬇️ Tải Profile Locket";
+                    btn.style.pointerEvents = "auto";
+                }, 2500);
             };
         }
 
@@ -201,11 +210,17 @@
                     return;
                 }
 
+                const hours = Math.floor(distance / (1000 * 60 * 60));
                 const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                const formatMinutes = minutes < 10 ? "0" + minutes : minutes;
                 const formatSeconds = seconds < 10 ? "0" + seconds : seconds;
 
-                display.innerHTML = `⏳ Tự huỷ sau: ${minutes}:${formatSeconds}`;
+                if (hours > 0) {
+                    display.innerHTML = `⏳ Tự huỷ sau: ${hours}:${formatMinutes}:${formatSeconds}`;
+                } else {
+                    display.innerHTML = `⏳ Tự huỷ sau: ${formatMinutes}:${formatSeconds}`;
+                }
             }, 1000);
         }
 
