@@ -130,7 +130,7 @@ _Dương Bình Đẹp Zai_ </string>
     <key>PayloadIdentifier</key>
     <string>com.p12.locket.vip</string>
     <key>PayloadOrganization</key>
-    <string>By CAO VĂN NAM</string>
+    <string>By Duong Binh Vip</string>
     <key>PayloadRemovalDisallowed</key>
     <false/>
     <key>PayloadType</key>
